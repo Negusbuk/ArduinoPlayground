@@ -1,0 +1,3 @@
+[submodule "Parts/ThirdParty/AchimPieters_Fritzing-Custom-Parts"]
+	path = Parts/ThirdParty/AchimPieters_Fritzing-Custom-Parts
+	url = git://github.com/AchimPieters/Fritzing-Custom-Parts.git
