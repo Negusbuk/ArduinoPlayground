@@ -9,8 +9,12 @@ int statusCounter = 0;
 
 byte lastAddress = 0;
 
-uint16_t exposureTime = 0x0010;
+uint16_t exposureTime = 5; // [seconds]
+uint16_t dt;
+
 bool exposureLoopActive = false;
+bool focusOn = false;
+bool triggerOn = false;
 bool inExposure = false;
 unsigned long timeAtExposureStart;
 unsigned long timeAtExposureEnd;
@@ -32,23 +36,29 @@ void setup()
 
 void focusON()
 {
+  triggerOn = false;
+  focusOn = true;
   triggerOFF();
   digitalWrite(focusPin, HIGH);
 }
 
 void focusOFF()
 {
+  focusOn = false;
   digitalWrite(focusPin, LOW);
 }
 
 void triggerON()
 {
+  triggerOn = true;
+  focusOn = false;
   focusOFF();
   digitalWrite(triggerPin, HIGH);
 }
 
 void triggerOFF()
 {
+  triggerOn = false;
   digitalWrite(triggerPin, LOW);
 }
 
@@ -63,38 +73,65 @@ void loop()
     statusCounter = 0;
   }
 
+  unsigned long timeStamp = millis();
+ 
+  dt = 0;
+  
   if (!inExposure) {
     if (exposureLoopActive) {
-      timeAtExposureStart = millis();
-      timeAtExposureEnd = timeAtExposureStart + exposureTime * 100;
+      timeAtExposureStart = timeStamp;
+      unsigned long milliExposureTime = exposureTime;
+      timeAtExposureEnd = timeAtExposureStart + milliExposureTime * 1000;
       inExposure = true;
       triggerON();
     }
   } else {
-    if (millis() > timeAtExposureEnd) {
+    if (timeStamp >= timeAtExposureEnd) {
       inExposure = false;
       triggerOFF();
       delay(500);
+    } else {
+      dt = double(timeAtExposureEnd - timeStamp)/1000.;
     }
   }
-
+  
   delay(100);
 }
 
-// Restarts program from beginning but does not reset the peripherals and registers
 void _SoftwareReset()
 {
   wdt_enable(WDTO_15MS);
 }
 
-// function that executes whenever data is received from master
 void requestEvent()
 {
   if (lastAddress == 0x10) {
-    byte buffer[2];
-    buffer[1] = exposureTime >> 8;
-    buffer[0] = exposureTime & 0xff;
-    Wire.write(buffer, 2);
+    Wire.write((uint8_t*)&exposureTime, 2);
+  }
+  if (lastAddress == 0x11) {
+    Wire.write((uint8_t)exposureLoopActive);
+  }
+  if (lastAddress == 0x12) {
+    Wire.write((uint8_t)focusOn);
+  }
+  if (lastAddress == 0x13) {
+    Wire.write((uint8_t)triggerOn);
+  }
+  if (lastAddress == 0x20) {
+    uint8_t data = exposureTime >> 8;
+    Wire.write(data);
+  }
+  if (lastAddress == 0x21) {
+    uint8_t data = exposureTime & 0xff;
+    Wire.write(data);
+  }
+  if (lastAddress == 0x30) {
+    uint8_t data = dt >> 8;
+    Wire.write(data);
+  }
+  if (lastAddress == 0x31) {
+    uint8_t data = dt & 0xff;
+    Wire.write(data);
   }
 
   lastAddress = 0;
@@ -126,31 +163,31 @@ void receiveEvent(int arg)
           data1 = Wire.read();
         }
         exposureTime = data1 << 8 | data0;
-
-        lastAddress = 0;
       }
 
       if (lastAddress == 0x11 && data0 == 0x00) {
         exposureLoopActive = false;
       }
       if (lastAddress == 0x11 && data0 == 0x01) {
+        focusOFF;
+        triggerOFF;
         exposureLoopActive = true;
       }
 
       if (lastAddress == 0x12 && data0 == 0x00) {
-        focusOFF();
+        if (!exposureLoopActive) focusOFF();
       }
 
       if (lastAddress == 0x12 && data0 == 0x01) {
-        focusON();
+        if (!exposureLoopActive) focusON();
       }
 
       if (lastAddress == 0x13 && data0 == 0x00) {
-        triggerOFF();
+        if (!exposureLoopActive) triggerOFF();
       }
 
       if (lastAddress == 0x13 && data0 == 0x01) {
-        triggerON();
+        if (!exposureLoopActive) triggerON();
       }
     }
   }
