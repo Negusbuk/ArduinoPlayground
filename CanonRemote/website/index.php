@@ -89,4 +89,6 @@ if ($TriggerStatus == 0) {
 } else {
 	echo ("<td><img id='triggeron' src='data/button_red.png' onclick='changeTrigger();'/></td>");
 }
+
+readfile ( "footer.html" );
 ?>
